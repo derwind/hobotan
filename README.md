@@ -1,6 +1,6 @@
 ## インストール
 ```
-pip install -U git+https://github.com/tytansdk/tytan
+pip install -U git+https://github.com/ShoyaYasuda/hobotan
 ```
 
 ## サンプルコード
