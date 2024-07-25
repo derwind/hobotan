@@ -5,6 +5,8 @@ pip install -U git+https://github.com/ShoyaYasuda/hobotan
 
 ## サンプルコード
 
+メモ：CPU計算だしeinsumを個体数だけforしてるから遅いはず。
+
 ```python
 import numpy as np
 from hobotan import *
