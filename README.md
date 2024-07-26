@@ -81,7 +81,7 @@ hobo, offset = Compile(H).get_hobo()
 print(f'offset\n{offset}')
 
 #サンプラー選択
-solver = sampler.ArminSampler()
+solver = sampler.MIKASAmpler()
 
 #サンプリング
 result = solver.run(hobo, shots=10000)
@@ -140,6 +140,7 @@ derwindさん、yuminさん、Shoya Yasudaさん
 ## 更新履歴
 |日付|ver|内容|
 |:---|:---|:---|
+|2024/07/26|0.0.4|MIKASAmplerに改名|
 |2024/07/26|0.0.3|テンソル計算を高速化|
 |2024/07/26|0.0.2|いろいろ修正|
 |2024/07/26|0.0.1|初期版|
