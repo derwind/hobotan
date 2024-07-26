@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.random as nr
+import time
 
 
 #共通後処理
@@ -28,6 +29,9 @@ def get_result(pool, score, index_map):
     return result
 
 
+#謎のglobal対応
+score2 = 0
+
 #アニーリング
 class SASampler:
     def __init__(self, seed=None):
@@ -35,7 +39,12 @@ class SASampler:
         self.seed = seed
 
     
-    def run(self, hobo, shots=100, T_num=2000, show=False):
+    def run(self, hobomix, shots=100, T_num=2000, show=False):
+        global score2
+        
+        #解除
+        hobo, index_map = hobomix
+        # print(index_map)
         
         #matrixサイズ
         N = len(hobo)
@@ -56,9 +65,31 @@ class SASampler:
         pool = nr.randint(0, 2, (pool_num, N)).astype(float)
         # print(pool)
         
+        """
+        poolの重複を解除する
+        """
+        # 重複は振り直し
+        # パリエーションに余裕あれば確定非重複
+        if pool_num < 2 ** (N - 1):
+            # print('remake 1')
+            for i in range(pool_num - 1):
+                for j in range(i + 1, pool_num):
+                    while (pool[i] == pool[j]).all():
+                        pool[j] = nr.randint(0, 2, N)
+        else:
+            # パリエーションに余裕なければ3トライ重複可
+            # print('remake 2')
+            for i in range(pool_num - 1):
+                for j in range(i + 1, pool_num):
+                    count = 0
+                    while (pool[i] == pool[j]).all():
+                        pool[j] = nr.randint(0, 2, N)
+                        count += 1
+                        if count == 3:
+                            break
+        
         #スコア初期化
         score = np.zeros(pool_num)
-        # score2 = np.zeros(pool_num)
         
         #スコア計算コマンド
         k = 'a,b,c,d,e,f,g,h,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'
@@ -150,12 +181,207 @@ class SASampler:
         
         # ----------
         #共通後処理
-        index_map = {f'q{k}': k for k in range(N)}
         result = get_result(pool, score, index_map)
         
         return result
 
 
+
+class ArminSampler:
+    def __init__(self, seed=None, mode='GPU', device='cuda:0', verbose=1):
+        #乱数シード
+        self.seed = seed
+        self.mode = mode
+        self.device_input = device
+        self.verbose = verbose
+
+    def run(self, hobomix, shots=100, T_num=2000, show=False):
+        global score2
+        
+        #解除
+        hobo, index_map = hobomix
+        # print(index_map)
+        
+        #pytorch確認
+        attention = False
+        try:
+            import random
+            import torch
+        except:
+            attention = True
+        if attention:
+            print()
+            print('=======================\n= A T T E N T I O N ! =\n=======================')
+            print('ArminSampler requires PyTorch installation.\nUse "pip install torch" (or others) and ensure\n-------\nimport torch\ntorch.cuda.is_available()\n#torch.backends.mps.is_available() #if Mac\n-------\noutputs True to set up the environment.')
+            print()
+            sys.exit()
+        
+        #matrixサイズ
+        N = len(hobo)
+        # print(N)
+        
+        #次数
+        ho = len(hobo.shape)
+        # print(ho)
+        
+        # CUDA使えるか確認
+        if self.mode == 'GPU' and torch.cuda.is_available():
+            if self.device_input == 'cuda:0': #指示がない場合
+                self.device = 'cuda:0'
+            else:
+                self.device = self.device_input
+        elif self.mode == 'GPU' and torch.backends.mps.is_available():
+            if self.device_input == 'cuda:0': #指示がない場合
+                self.device = 'mps:0'
+            else:
+                self.device = self.device_input
+        else:
+            self.mode = 'CPU'
+            self.device = 'cpu'
+        
+        #モード表示
+        if self.verbose > 0:
+            print(f'MODE: {self.mode}')
+            print(f'DEVICE: {self.device}')
+    
+        # ランダムシード
+        random.seed(int(time.time()))
+        nr.seed(int(time.time()))
+        torch.manual_seed(int(time.time()))
+        torch.backends.cudnn.deterministic = True
+        torch.use_deterministic_algorithms = True
+        
+        #シード固定
+        if self.seed != None:
+            random.seed(self.seed)
+            nr.seed(self.seed)
+            torch.manual_seed(self.seed)
+        
+        #
+        shots = max(int(shots), 100)
+        
+        # --- テンソル疑似SA ---
+        #
+        qmatrix = torch.tensor(hobo, dtype=torch.float32, device=self.device).float()
+        # print(qmatrix)
+        
+        # プール初期化
+        pool_num = shots
+        pool = torch.randint(0, 2, (pool_num, N), dtype=torch.float32, device=self.device).float()
+        
+        # スコア初期化
+        # score = torch.sum((pool @ qmatrix) * pool, dim=1, dtype=torch.float32)
+        score = torch.zeros(pool_num, dtype=torch.float32)
+        # print(score)
+        
+        #スコア計算コマンド
+        k = 'a,b,c,d,e,f,g,h,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'
+        l = 'abcdefghjklmnopqrstuvwxyz'
+        s = k[:2*ho] + l[:ho]
+        # print(s)
+        command = 'global score2\r\n'
+        command += f'score2 = torch.zeros(pool_num, dtype=torch.float32)\r\n'
+        command += f'for i in range(pool_num):\r\n'
+        command += f'    score2[i] = torch.einsum(\'{s}\', pool2[i]' + ', pool2[i]' * (ho - 1) + f', qmatrix)\r\n'
+        # print(command)
+        
+        #スコア計算
+        pool2 = pool
+        exec(command)
+        score = score2
+        # print(score)
+        
+        # フリップ数リスト（2個まで下がる）
+        flip = np.sort(nr.rand(T_num) ** 2)[::-1]
+        flip = (flip * max(0, N * 0.5 - 2)).astype(int) + 2
+        #print(flip)
+        
+        # フリップマスクリスト
+        flip_mask = [[1] * flip[0] + [0] * (N - flip[0])]
+        if N <= 2:
+            flip_mask = np.ones((T_num, N), int)
+        else:
+            for i in range(1, T_num):
+                tmp = [1] * flip[i] + [0] * (N - flip[i])
+                nr.shuffle(tmp)
+                # 前と重複なら振り直し
+                while tmp == flip_mask[-1]:
+                    nr.shuffle(tmp)
+                flip_mask.append(tmp)
+            flip_mask = np.array(flip_mask, bool)
+        flip_mask = torch.tensor(flip_mask).bool()
+        #print(flip_mask.shape)
+        
+        # 局所探索フリップマスクリスト
+        single_flip_mask = torch.eye(N, dtype=bool)
+        #print(single_flip_mask)
+        
+        # スコア履歴
+        score_history = []
+        
+        """
+        アニーリング＋1フリップ
+        """
+        # アニーリング
+        # 集団まるごと温度を下げる
+        for fm in flip_mask:
+            pool2 = pool.clone()
+            pool2[:, fm] = 1. - pool[:, fm]
+            # score2 = torch.sum((pool2 @ qmatrix) * pool2, dim=1)
+    
+            # print(command)
+            exec(command)
+            # print(score)
+            # print(score2)
+    
+            # 更新マスク
+            update_mask = score2 < score
+    
+            # 更新
+            pool[update_mask] = pool2[update_mask]
+            score[update_mask] = score2[update_mask]
+            
+            # スコア記録
+            score_history.append(torch.mean(score).item())
+            
+        # 最後に1フリップ局所探索
+        # 集団まるごと
+        for fm in single_flip_mask:
+            pool2 = pool.clone()
+            pool2[:, fm] = 1. - pool[:, fm]
+            # score2 = torch.sum((pool2 @ qmatrix) * pool2, dim=1)
+    
+            # print(command)
+            exec(command)
+            # print(score)
+            # print(score2)
+    
+            # 更新マスク
+            update_mask = score2 < score
+    
+            # 更新
+            pool[update_mask] = pool2[update_mask]
+            score[update_mask] = score2[update_mask]
+            
+        # スコア記録
+        score_history.append(torch.mean(score).item())
+
+        # 描画
+        if show:
+            import matplotlib.pyplot as plt
+            plt.plot(range(T_num + 1), score_history)
+            plt.xlabel('Iteration')
+            plt.ylabel('Energy')
+            plt.show()
+        
+        pool = pool.to('cpu').detach().numpy().copy()
+        score = score.to('cpu').detach().numpy().copy()
+        
+        # ----------
+        #共通後処理
+        result = get_result(pool, score, index_map)
+        
+        return result
 
 if __name__ == "__main__":
     pass

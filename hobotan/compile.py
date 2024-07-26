@@ -1,17 +1,21 @@
 import re
 import numpy as np
-import sympy
+import symengine
 
 
-#最高次数チェック
-def highest_order(expr):
-    # 数式から変数を取得
-    variables = list(expr.free_symbols)
-    # 数式を多項式としてオブジェクト化
-    poly_obj = sympy.Poly(expr, *variables)
-    # 多項式の各項について総合的な次数を計算し、その中で最大のものを返す
-    return max(sum(mon) for mon in poly_obj.monoms())
 
+def replace_function(expression, function, new_function):
+    if expression.is_Atom:
+        return expression
+    else:
+        replaced_args = (
+                replace_function(arg, function,new_function)
+                for arg in expression.args
+            )
+        if ( expression.__class__ == symengine.Pow):
+            return new_function(*replaced_args)
+        else:
+            return expression.func(*replaced_args)
 
 class Compile:
     def __init__(self, expr):
@@ -19,59 +23,117 @@ class Compile:
 
     #hoboテンソル作成
     def get_hobo(self):
+        
         #式を展開して同類項をまとめる
-        expr = sympy.expand(self.expr)
+        expr = symengine.expand(self.expr)
         
         #二乗項を一乗項に変換
-        expr = expr.replace(lambda e: isinstance(e, sympy.Pow) and e.exp == 2, lambda e: e.base)
+        expr = replace_function(expr, lambda e: isinstance(e, symengine.Pow) and e.exp == 2, lambda e, *args: e)
         
-        #最高次数
-        ho = highest_order(expr)
+        #最高字数を調べながらオフセットを記録
+        #項に分解
+        members = str(expr).split(' ')
+        
+        #各項をチェック
+        offset = 0
+        ho = 0
+        for member in members:
+            #数字単体ならオフセット
+            try:
+                offset += float(member) #エラーなければ数字
+            except:
+                pass
+            #'*'で分解
+            texts = member.split('*')
+            #係数を取り除く
+            try:
+                texts[0] = re.sub(r'[()]', '', texts[0]) #'(5/2)'みたいなのも来る
+                float(Rational(texts[0])) #分数も対応 #エラーなければ係数あり
+                texts = texts[1:]
+            except:
+                pass
+            
+            # 以下はセーフ
+            # q0   ['q0']
+            # q0*q1   ['q0', 'q1']
+            # q0**2   ['q0', '', '2']
+            
+            # 以下はダメ
+            # q0*q1**2   ['q0', 'q1', '', '2']
+            # q0*q1*q2   [q0', 'q1', 'q2']
+            # q0**2*q1**2    ['q0', '', '2', 'q1', '', '2']
+            # if len(texts) >= 4:
+            #     raise Exception(f'Error! The highest order of the constraint must be within 2.')
+            # if len(texts) == 3 and texts[1] != '':
+            #     raise Exception(f'Error! The highest order of the constraint must be within 2.')
+            
+            #最高次数の計算
+            #qの数を数えればいい
+            # ['25']
+            # ['-']
+            # ['18', 'q1', 'q2']
+            # ['5', 'q3', 'q4', 'q1', 'q2']
+            isdecimal = [s.isdecimal() for s in texts]
+            if isdecimal.count(False) > ho:
+                ho = isdecimal.count(False)
         # print(ho)
         
         #もう一度同類項をまとめる
-        expr = sympy.expand(expr)
-        # print(expr)
-        
-        #定数項をoffsetとして抽出
-        offset = 0
-        for ex in expr.as_ordered_terms()[::-1]:
-            if 'numbers.' in str(type(ex)):
-                offset = ex
-                break
-        # print(offset)
-        
-        #offsetを引いて消す
-        expr2 = expr - offset
-        # print(expr2)
-        
+        expr = symengine.expand(expr)
+
         #文字と係数の辞書
-        coeff_dict = expr2.as_coefficients_dict()
+        coeff_dict = expr.as_coefficients_dict()
+        # print(coeff_dict)
+        
+        #定数項を消す　{1: 25} 必ずある
+        del coeff_dict[1]
+        # print(coeff_dict)
+        
+        #シンボル対応表
+        # 重複なしにシンボルを抽出
+        keys = list(set(sum([str(key).split('*') for key in coeff_dict.keys()], [])))
+        # print(keys)
+        
+        # 要素のソート（ただしアルファベットソート）
+        keys.sort()
+        # print(keys)
+        
+        # シンボルにindexを対応させる
+        index_map = {key:i for i, key in enumerate(keys)}
+        # print(index_map)
         
         #量子ビット数
-        num = 0
-        for key, _ in coeff_dict.items():
-            # print(key)
-            tmp = re.split('[q*]', str(key))
-            tmp = [int(s) for s in tmp if len(s) > 0]
-            if max(tmp) > num:
-                num = max(tmp)
-        num += 1
+        num = len(index_map)
         # print(num)
-            
+        
+        # if ho == 4:
+        #     hobo = np.zeros([6, 6, 6, 6])
+        #     for key, value in coeff_dict.items():
+        #         tmp = str(key).split('*')
+        #         print(tmp)
+        #         # tmp = [int(re.sub(r'\D', '', s)) for s in tmp]
+        #         # print(tmp)
+        #         if len(tmp) == 1:
+        #             hobo[index_map[tmp[0]], index_map[tmp[0]], index_map[tmp[0]], index_map[tmp[0]]] = float(value)
+        #         if len(tmp) == 2:
+        #             hobo[tmp[0], tmp[0], tmp[0], tmp[1]] = float(value)
+        #         if len(tmp) == 3:
+        #             hobo[tmp[0], tmp[0], tmp[1], tmp[2]] = float(value)
+        #         if len(tmp) == 4:
+        #             hobo[tmp[0], tmp[1], tmp[2], tmp[3]] = float(value)
+        
         #HOBO行列生成コマンド
         command = 'global hobo\r\n'
         command += f'if ho == {ho}:\r\n'
         command += f'    hobo = np.zeros([{num}' + f', {num}' * (ho - 1) + '])\r\n'
         command += f'    for key, value in coeff_dict.items():\r\n'
         command += f'        tmp = str(key).split(\'*\')\r\n'
-        command += f'        tmp = [int(re.sub(r\'\D\', \'\', s)) for s in tmp]\r\n'
         for i in range(1, ho + 1):
             command += f'        if len(tmp) == {i}:\r\n'
-            command += f'            hobo[tmp[0]'
+            command += f'            hobo[index_map[tmp[0]]'
             j = i - (ho - 1)
             for _ in range(ho - 1):
-                command += f', tmp[{max(0, j)}]'
+                command += f', index_map[tmp[{max(0, j)}]]'
                 j += 1
             command += f'] = float(value)\r\n'
         # print(command)
@@ -79,4 +141,4 @@ class Compile:
         #HOBO生成
         exec(command)
         
-        return hobo, offset
+        return [hobo, index_map], offset
