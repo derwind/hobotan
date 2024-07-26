@@ -129,6 +129,10 @@ Energy -17.0, Occurrence 496
 <img src="https://github.com/ShoyaYasuda/hobotan/blob/main/img/img3.png" width="%">
 
 
+## その他の使い方
+
+[TYTANパッケージ](https://github.com/tytansdk/tytan) の派生形なのでそちらを参照してみてください。
+
 ## 開発チーム
 
 derwindさん、yuminさん、Shoya Yasudaさん
