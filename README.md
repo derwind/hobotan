@@ -135,7 +135,7 @@ Energy -17.0, Occurrence 496
 
 ## 開発チーム
 
-derwindさん、yuminさん、Shoya Yasudaさん
+derwindさん（理論）、yuminさん（マネージャー）、Shoya Yasudaさん（実装）
 
 ## 更新履歴
 |日付|ver|内容|
