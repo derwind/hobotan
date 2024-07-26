@@ -51,6 +51,11 @@ for r in result:
 [1 1 1 1 0]
 ```
 
+GPU計算はこちら
+```python
+solver = sampler.ArminSampler(seed=0)
+```
+
 ## 更新履歴
 |日付|ver|内容|
 |:---|:---|:---|
