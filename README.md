@@ -13,7 +13,6 @@ from hobotan import *
 
 #量子ビットを用意
 q = symbols_list(50, 'q{}')
-print(q)
 
 #式
 H = (q[0] + q[10] + q[20] + q[30] + q[40] - 5)**2 - 20*q[0]*q[10] - 10*q[0]*q[10]*q[20] + 5*q[10]*q[20]*q[30]*q[40]
@@ -36,9 +35,6 @@ for r in result:
     print(arr)
 ```
 ```
-[q0 q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11 q12 q13 q14 q15 q16 q17 q18 q19 q20
- q21 q22 q23 q24 q25 q26 q27 q28 q29 q30 q31 q32 q33 q34 q35 q36 q37 q38
- q39 q40 q41 q42 q43 q44 q45 q46 q47 q48 q49]
 25.0
 [{'q0': 1, 'q10': 1, 'q20': 1, 'q30': 0, 'q40': 1}, -54.0, 23]
 [1 1 1 0 1]
@@ -115,18 +111,12 @@ Energy -17.0, Occurrence 686
  [0 0 1 0 0]
  [1 1 0 1 1]
  [1 1 0 1 1]]
-```
-<img src="https://github.com/ShoyaYasuda/hobotan/blob/main/img/img-01.png" width="%">
-```
 Energy -17.0, Occurrence 622
 [[1 1 0 1 1]
  [1 0 1 1 0]
  [0 1 1 0 1]
  [1 1 0 1 1]
  [1 0 1 1 0]]
-```
-<img src="https://github.com/tytansdk/tytan/blob/main/img/img-01.png" width="%">
-```
 Energy -17.0, Occurrence 496
 [[0 1 1 0 1]
  [1 1 0 1 1]
@@ -134,11 +124,19 @@ Energy -17.0, Occurrence 496
  [0 1 1 0 1]
  [1 1 0 1 1]]
 ```
-<img src="https://github.com/tytansdk/tytan/blob/main/img/img-01.png" width="%">
+<img src="https://github.com/ShoyaYasuda/hobotan/blob/main/img/img1.png" width="%">
+<img src="https://github.com/ShoyaYasuda/hobotan/blob/main/img/img2.png" width="%">
+<img src="https://github.com/ShoyaYasuda/hobotan/blob/main/img/img3.png" width="%">
+
+
+## 開発チーム
+
+derwindさん、yuminさん、Shoya Yasudaさん
 
 ## 更新履歴
 |日付|ver|内容|
 |:---|:---|:---|
+|2024/07/26|0.0.3|テンソル計算を高速化|
 |2024/07/26|0.0.2|いろいろ修正|
 |2024/07/26|0.0.1|初期版|
 
