@@ -52,7 +52,7 @@ ArminSampler()はGPUを使用（別途pytorchをインストールしておく�
 
 ```python
 import numpy as np
-from hobotann import *
+from hobotan import *
 import matplotlib.pyplot as plt
 
 #量子ビットを用意
