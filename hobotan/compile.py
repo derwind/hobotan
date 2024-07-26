@@ -106,22 +106,6 @@ class Compile:
         num = len(index_map)
         # print(num)
         
-        # if ho == 4:
-        #     hobo = np.zeros([6, 6, 6, 6])
-        #     for key, value in coeff_dict.items():
-        #         tmp = str(key).split('*')
-        #         print(tmp)
-        #         # tmp = [int(re.sub(r'\D', '', s)) for s in tmp]
-        #         # print(tmp)
-        #         if len(tmp) == 1:
-        #             hobo[index_map[tmp[0]], index_map[tmp[0]], index_map[tmp[0]], index_map[tmp[0]]] = float(value)
-        #         if len(tmp) == 2:
-        #             hobo[tmp[0], tmp[0], tmp[0], tmp[1]] = float(value)
-        #         if len(tmp) == 3:
-        #             hobo[tmp[0], tmp[0], tmp[1], tmp[2]] = float(value)
-        #         if len(tmp) == 4:
-        #             hobo[tmp[0], tmp[1], tmp[2], tmp[3]] = float(value)
-        
         #HOBO行列生成コマンド
         command = 'global hobo\r\n'
         command += f'if ho == {ho}:\r\n'
