@@ -133,7 +133,7 @@ Energy -17.0, Occurrence 496
 
 [TYTANパッケージ](https://github.com/tytansdk/tytan) の派生形なのでそちらを参照してみてください。
 
-## 開発チーム
+## 開発㌠
 
 derwindさん（理論）、yuminさん（マネージャー）、Shoya Yasudaさん（実装）
 
