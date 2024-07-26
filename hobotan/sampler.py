@@ -189,7 +189,7 @@ class SASampler:
 
 
 
-class ArminSampler:
+class MIKASAmpler:
     def __init__(self, seed=None, mode='GPU', device='cuda:0', verbose=1):
         #乱数シード
         self.seed = seed
