@@ -3,24 +3,19 @@
 pip install -U git+https://github.com/ShoyaYasuda/hobotan
 ```
 
-## サンプルコード
+## サンプルコード（CPU利用）
 
-メモ：GPU対応しましたが、CPUの方が圧倒的に速いです。
+以下は基本的なコード。
 
 ```python
 import numpy as np
 from hobotan import *
 
-"""
-多次元定義OK　[4, 4]とか
-記号もq以外でもOK
-"""
+#量子ビットを用意
 q = symbols_list(50, 'q{}')
 print(q)
 
-"""
-何次でもOK
-"""
+#式
 H = (q[0] + q[10] + q[20] + q[30] + q[40] - 5)**2 - 20*q[0]*q[10] - 10*q[0]*q[10]*q[20] + 5*q[10]*q[20]*q[30]*q[40]
 
 #HOBOテンソルにコンパイル
@@ -51,10 +46,95 @@ for r in result:
 [1 1 1 1 0]
 ```
 
-GPU計算はこちら
+## サンプルコード（GPU利用）
+
+量子ビットは2次元配列で定義でき、定式化でq[0, 0]のように使用できる。（3次元もできるよ）
+
+ArminSampler()はGPUを使用（別途pytorchをインストールしておくこと）。shots=10000に増やしても遅くなりにくいのが特徴。
+
+以下のコードは、5✕5の席にできるだけ多くの生徒を座らせる（ただし3席連続で座ってはいけない）を解いたもの。
+
 ```python
-solver = sampler.ArminSampler(seed=0)
+import numpy as np
+from hobotann import *
+import matplotlib.pyplot as plt
+
+#量子ビットを用意
+q = symbols_list([5, 5], 'q{}_{}')
+
+#すべての席に座りたい（できれば）
+H1 = 0
+for i in range(5):
+    for j in range(5):
+        H1 += - q[i, j]
+
+#どの直線に並ぶ3席も連続で座ってはいけない（絶対）
+H2 = 0
+for i in range(5):
+    for j in range(5 - 3 + 1):
+        H2 += np.prod(q[i, j:j+3])
+for j in range(5):
+    for i in range(5 - 3 + 1):
+        H2 += np.prod(q[i:i+3, j])
+
+#式の合体
+H = H1 + 10*H2
+
+#HOBOテンソルにコンパイル
+hobo, offset = Compile(H).get_hobo()
+print(f'offset\n{offset}')
+
+#サンプラー選択
+solver = sampler.ArminSampler()
+
+#サンプリング
+result = solver.run(hobo, shots=10000)
+
+#上位3件
+for r in result[:3]:
+    print(f'Energy {r[1]}, Occurrence {r[2]}')
+
+    #さくっと配列に
+    arr, subs = Auto_array(r[0]).get_ndarray('q{}_{}')
+    print(arr)
+
+    #さくっと画像に
+    img, subs = Auto_array(r[0]).get_image('q{}_{}')
+    plt.figure(figsize=(2, 2))
+    plt.imshow(img)
+    plt.show()
 ```
+```
+offset
+0
+MODE: GPU
+DEVICE: cuda:0
+Energy -17.0, Occurrence 686
+[[1 1 0 1 1]
+ [1 1 0 1 1]
+ [0 0 1 0 0]
+ [1 1 0 1 1]
+ [1 1 0 1 1]]
+```
+<img src="https://github.com/ShoyaYasuda/hobotan/blob/main/img/img-01.png" width="%">
+```
+Energy -17.0, Occurrence 622
+[[1 1 0 1 1]
+ [1 0 1 1 0]
+ [0 1 1 0 1]
+ [1 1 0 1 1]
+ [1 0 1 1 0]]
+```
+<img src="https://github.com/tytansdk/tytan/blob/main/img/img-01.png" width="%">
+```
+Energy -17.0, Occurrence 496
+[[0 1 1 0 1]
+ [1 1 0 1 1]
+ [1 0 1 1 0]
+ [0 1 1 0 1]
+ [1 1 0 1 1]]
+```
+<img src="https://github.com/tytansdk/tytan/blob/main/img/img-01.png" width="%">
 
 ## 更新履歴
 |日付|ver|内容|
