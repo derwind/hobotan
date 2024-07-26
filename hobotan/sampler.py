@@ -90,16 +90,18 @@ class SASampler:
         
         #スコア初期化
         score = np.zeros(pool_num)
+    
+        # einsum("ijk,i,j,k->", T, x, x, x)
+        # einsum("ijk,Ni,Nj,Nk->N", T, x, x, x)
         
         #スコア計算コマンド
-        k = 'a,b,c,d,e,f,g,h,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'
+        k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
         l = 'abcdefghjklmnopqrstuvwxyz'
-        s = k[:2*ho] + l[:ho]
+        s = l[:ho] + k[:3*ho] + '->N'
         # print(s)
         command = 'global score2\r\n'
         command += f'score2 = np.zeros(pool_num)\r\n'
-        command += f'for i in range(pool_num):\r\n'
-        command += f'    score2[i] = np.einsum(\'{s}\', pool2[i]' + ', pool2[i]' * (ho - 1) + f', hobo)\r\n'
+        command += f'score2 = np.einsum(\'{s}\', hobo, pool2' + ', pool2' * (ho - 1) + f')\r\n'
         # print(command)
         
         #スコア計算
@@ -274,15 +276,17 @@ class ArminSampler:
         score = torch.zeros(pool_num, dtype=torch.float32)
         # print(score)
         
+        # einsum("ijk,i,j,k->", T, x, x, x)
+        # einsum("ijk,Ni,Nj,Nk->N", T, x, x, x)
+        
         #スコア計算コマンド
-        k = 'a,b,c,d,e,f,g,h,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'
+        k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
         l = 'abcdefghjklmnopqrstuvwxyz'
-        s = k[:2*ho] + l[:ho]
+        s = l[:ho] + k[:3*ho] + '->N'
         # print(s)
         command = 'global score2\r\n'
         command += f'score2 = torch.zeros(pool_num, dtype=torch.float32)\r\n'
-        command += f'for i in range(pool_num):\r\n'
-        command += f'    score2[i] = torch.einsum(\'{s}\', pool2[i]' + ', pool2[i]' * (ho - 1) + f', qmatrix)\r\n'
+        command += f'score2 = torch.einsum(\'{s}\', qmatrix, pool2' + ', pool2' * (ho - 1) + f')\r\n'
         # print(command)
         
         #スコア計算
