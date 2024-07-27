@@ -157,7 +157,7 @@ result = solver.run(hobo, shots=10000)
 for r in result[:10]:
     print(f'Energy {r[1]}, Occurrence {r[2]}')
     
-    #さくっと配列に
+    #さくっと10進数に戻す
     print('x =', Auto_array(r[0]).get_nbit_value(x))
     print('y =', Auto_array(r[0]).get_nbit_value(y))
     print('z =', Auto_array(r[0]).get_nbit_value(z))
