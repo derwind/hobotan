@@ -88,4 +88,19 @@ def symbols_list(shape, format_txt):
     return np.array(q)
 
 
+def symbols_nbit(start, stop, format_txt, num=8):
+    #次元チェック
+    if 1 != format_txt.count('{}'):
+        raise TytanException("specify format option like format_txt=\'q{}\' and should be one dimension.")
+    
+    #生成
+    q = symbols_list(num, format_txt=format_txt)
+
+    #式
+    ret = 0
+    for n in range(num):
+        #係数を規格化してから量子ビットをかけたい
+        ret += (start + (stop - start)) * 2**(num - n - 1) / 2**num * q[n]
+
+    return ret
 
