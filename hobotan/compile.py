@@ -1,7 +1,7 @@
 import re
 import numpy as np
 import symengine
-
+from sympy import Rational
 
 
 def replace_function(expression, function, new_function):
@@ -68,14 +68,11 @@ class Compile:
             #     raise Exception(f'Error! The highest order of the constraint must be within 2.')
             
             #最高次数の計算
-            #qの数を数えればいい
-            # ['25']
             # ['-']
-            # ['18', 'q1', 'q2']
-            # ['5', 'q3', 'q4', 'q1', 'q2']
-            isdecimal = [s.isdecimal() for s in texts]
-            if isdecimal.count(False) > ho:
-                ho = isdecimal.count(False)
+            # ['q2']
+            # ['q3', 'q4', 'q1', 'q2']
+            if len(texts) > ho:
+                ho = len(texts)
         # print(ho)
         
         #もう一度同類項をまとめる
