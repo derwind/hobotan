@@ -103,6 +103,8 @@ class Compile:
         num = len(index_map)
         # print(num)
         
+        """
+        #旧実装
         #HOBO行列生成コマンド
         command = 'global hobo\r\n'
         command += f'if ho == {ho}:\r\n'
@@ -117,9 +119,18 @@ class Compile:
                 command += f', index_map[tmp[{max(0, j)}]]'
                 j += 1
             command += f'] = float(value)\r\n'
-        # print(command)
+        print(command)
         
         #HOBO生成
         exec(command)
+        """
+        
+        #HOBO行列生成
+        hobo = np.zeros(num ** ho, dtype=float).reshape([num] * ho)
+        for key, value in coeff_dict.items():
+            qnames = str(key).split('*')
+            indices = sorted([index_map[qname] for qname in qnames])
+            indices = [indices[0]] * (ho - len(indices)) + indices
+            hobo[tuple(indices)] = float(value)
         
         return [hobo, index_map], offset

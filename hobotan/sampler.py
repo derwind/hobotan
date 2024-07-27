@@ -90,9 +90,11 @@ class SASampler:
         
         #スコア初期化
         score = np.zeros(pool_num)
-    
-        # einsum("ijk,i,j,k->", T, x, x, x)
-        # einsum("ijk,Ni,Nj,Nk->N", T, x, x, x)
+        
+        """
+        #旧実装
+        # einsum("ijk,i,j,k->", qmatrix, x, x, x)
+        # einsum("ijk,Ni,Nj,Nk->N", qmatrix, pool, pool, pool)
         
         #スコア計算コマンド
         k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
@@ -109,7 +111,18 @@ class SASampler:
         exec(command)
         score = score2
         # print(score)
-
+        """
+        
+        #スコア計算
+        k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
+        l = 'abcdefghjklmnopqrstuvwxyz'
+        s = l[:ho] + k[:3*ho] + '->N'
+        # print(s)
+        
+        operands = [hobo] + [pool] * ho
+        score = np.einsum(s, *operands)
+        # print(score)
+        
         # フリップ数リスト（2個まで下がる）
         flip = np.sort(nr.rand(T_num) ** 2)[::-1]
         flip = (flip * max(0, N * 0.5 - 2)).astype(int) + 2
@@ -145,10 +158,8 @@ class SASampler:
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = np.sum((pool2 @ qmatrix) * pool2, axis=1)
             
-            # print(command)
-            exec(command)
-            # print(score)
-            # print(score2)
+            operands = [hobo] + [pool2] * ho
+            score2 = np.einsum(s, *operands)
             
             # 更新マスク
             update_mask = score2 < score
@@ -167,10 +178,8 @@ class SASampler:
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = np.sum((pool2 @ qmatrix) * pool2, axis=1)
             
-            # print(command)
-            exec(command)
-            # print(score)
-            # print(score2)
+            operands = [hobo] + [pool2] * ho
+            score2 = np.einsum(s, *operands)
             
             # 更新マスク
             update_mask = score2 < score
@@ -264,8 +273,8 @@ class MIKASAmpler:
         
         # --- テンソル疑似SA ---
         #
-        qmatrix = torch.tensor(hobo, dtype=torch.float32, device=self.device).float()
-        # print(qmatrix)
+        hobo = torch.tensor(hobo, dtype=torch.float32, device=self.device).float()
+        # print(hobo)
         
         # プール初期化
         pool_num = shots
@@ -276,8 +285,10 @@ class MIKASAmpler:
         score = torch.zeros(pool_num, dtype=torch.float32)
         # print(score)
         
-        # einsum("ijk,i,j,k->", T, x, x, x)
-        # einsum("ijk,Ni,Nj,Nk->N", T, x, x, x)
+        """
+        #旧実装
+        # einsum("ijk,i,j,k->", hobo, x, x, x)
+        # einsum("ijk,Ni,Nj,Nk->N", hobo, pool, pool, pool)
         
         #スコア計算コマンド
         k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
@@ -286,13 +297,24 @@ class MIKASAmpler:
         # print(s)
         command = 'global score2\r\n'
         command += f'score2 = torch.zeros(pool_num, dtype=torch.float32)\r\n'
-        command += f'score2 = torch.einsum(\'{s}\', qmatrix, pool2' + ', pool2' * (ho - 1) + f')\r\n'
-        # print(command)
+        command += f'score2 = torch.einsum(\'{s}\', hobo, pool2' + ', pool2' * (ho - 1) + f')\r\n'
+        print(command)
         
         #スコア計算
         pool2 = pool
         exec(command)
         score = score2
+        print(score)
+        """
+        
+        #スコア計算
+        k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
+        l = 'abcdefghjklmnopqrstuvwxyz'
+        s = l[:ho] + k[:3*ho] + '->N'
+        # print(s)
+        
+        operands = [hobo] + [pool] * ho
+        score = torch.einsum(s, *operands)
         # print(score)
         
         # フリップ数リスト（2個まで下がる）
@@ -333,10 +355,8 @@ class MIKASAmpler:
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = torch.sum((pool2 @ qmatrix) * pool2, dim=1)
     
-            # print(command)
-            exec(command)
-            # print(score)
-            # print(score2)
+            operands = [hobo] + [pool2] * ho
+            score2 = torch.einsum(s, *operands)
     
             # 更新マスク
             update_mask = score2 < score
@@ -355,10 +375,8 @@ class MIKASAmpler:
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = torch.sum((pool2 @ qmatrix) * pool2, dim=1)
     
-            # print(command)
-            exec(command)
-            # print(score)
-            # print(score2)
+            operands = [hobo] + [pool2] * ho
+            score2 = torch.einsum(s, *operands)
     
             # 更新マスク
             update_mask = score2 < score
