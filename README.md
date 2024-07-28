@@ -84,6 +84,7 @@ solver = sampler.MIKASAmpler()
 
 #サンプリング
 result = solver.run(hobo, shots=10000)
+#result = solver.run(hobo, shots=10000, use_ttd=True) #TT分解を使用
 
 #上位3件
 for r in result[:3]:
@@ -152,6 +153,7 @@ solver = sampler.MIKASAmpler()
 
 #サンプリング
 result = solver.run(hobo, shots=10000)
+#result = solver.run(hobo, shots=10000, use_ttd=True) #TT分解を使用
 
 #上位10件
 for r in result[:10]:
@@ -221,6 +223,7 @@ derwindさん（理論）、yuminさん（マネージャー）、Shoya Yasuda�
 ## 更新履歴
 |日付|ver|内容|
 |:---|:---|:---|
+|2024/07/28|0.0.8|TT分解オプションを追加（未検証）|
 |2024/07/27|0.0.7|exec(command)を解除|
 |2024/07/27|0.0.6|compileのミスを修正|
 |2024/07/27|0.0.5|symbols_nbitを追加|
