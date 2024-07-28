@@ -1,6 +1,7 @@
+import sys
+import time
 import numpy as np
 import numpy.random as nr
-import time
 
 
 #共通後処理
@@ -206,7 +207,7 @@ class MIKASAmpler:
         self.device_input = device
         self.verbose = verbose
 
-    def run(self, hobomix, shots=100, T_num=2000, show=False):
+    def run(self, hobomix, shots=100, T_num=2000, use_ttd=False, show=False):
         global score2
         
         #解除
@@ -274,7 +275,16 @@ class MIKASAmpler:
         # --- テンソル疑似SA ---
         #
         hobo = torch.tensor(hobo, dtype=torch.float32, device=self.device).float()
-        # print(hobo)
+        # print(hobo.shape)
+        
+        #TT分解を使用する場合
+        tt_cores = []
+        if use_ttd:
+            print(f'TTD: {use_ttd}')
+            tt_cores = TT_SVD(hobo)
+            # print(len(tt_cores))
+            # print(tt_cores[0].shape)
+            # print(tt_cores[1].shape)
         
         # プール初期化
         pool_num = shots
@@ -310,10 +320,18 @@ class MIKASAmpler:
         #スコア計算
         k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
         l = 'abcdefghjklmnopqrstuvwxyz'
-        s = l[:ho] + k[:3*ho] + '->N'
+        if use_ttd:
+            ltt = ['aA', 'AbB', 'BcC', 'CdD', 'DeE', 'EfF', 'FgG', 'GhH', 'HiJ', 'JjK', 'KkL', 'LlM', 'MmO', 'OnP', 'PoQ', 'QpR', 'RqS', 'SrT', 'TsU', 'UuV', 'VvW', 'WwX', 'XxY', 'YyZ', 'Zz']
+            ltt = ltt[:ho][:]
+            if len(ltt[-1]) == 3:
+                ltt[-1] = ltt[-1][:2]  # 両端は 2 階のテンソルなので 2 つのインデックスのみ
+            s = ','.join(ltt) + k[:3*ho] + '->N'
+            operands = tt_cores + [pool] * ho
+        else:
+            s = l[:ho] + k[:3*ho] + '->N'
+            operands = [hobo] + [pool] * ho
         # print(s)
         
-        operands = [hobo] + [pool] * ho
         score = torch.einsum(s, *operands)
         # print(score)
         
@@ -355,7 +373,10 @@ class MIKASAmpler:
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = torch.sum((pool2 @ qmatrix) * pool2, dim=1)
     
-            operands = [hobo] + [pool2] * ho
+            if use_ttd:
+                operands = tt_cores + [pool2] * ho
+            else:
+                operands = [hobo] + [pool2] * ho
             score2 = torch.einsum(s, *operands)
     
             # 更新マスク
@@ -375,7 +396,10 @@ class MIKASAmpler:
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = torch.sum((pool2 @ qmatrix) * pool2, dim=1)
     
-            operands = [hobo] + [pool2] * ho
+            if use_ttd:
+                operands = tt_cores + [pool2] * ho
+            else:
+                operands = [hobo] + [pool2] * ho
             score2 = torch.einsum(s, *operands)
     
             # 更新マスク
@@ -404,6 +428,71 @@ class MIKASAmpler:
         result = get_result(pool, score, index_map)
         
         return result
+
+def TT_SVD(C, bond_dims=None, check_bond_dims=False, return_sv=False):
+    """TT_SVD algorithm
+    I. V. Oseledets, Tensor-Train Decomposition, https://epubs.siam.org/doi/10.1137/090752286, Vol. 33, Iss. 5 (2011)
+    Args:
+        C (torch.Tensor): n-dimensional input tensor
+        bond_dims (Sequence[int]): a list of bond dimensions.
+                                   If `bond_dims` is None,
+                                   `bond_dims` will be automatically calculated
+        check_bond_dims (bool): check if `bond_dims` is valid
+        return_sv (bool): return singular values
+    Returns:
+        list[torch.Tensor]: a list of core tensors of TT-decomposition
+    """
+    import torch
+
+    dims = C.shape
+    n = len(dims)  # n-dimensional tensor
+
+    if bond_dims is None or check_bond_dims:
+        # Theorem 2.1
+        bond_dims_ = []
+        for sep in range(1, n):
+            row_dim = dims[:sep].numel()
+            col_dim = dims[sep:].numel()
+            rank = torch.linalg.matrix_rank(C.reshape(row_dim, col_dim))
+            bond_dims_.append(rank)
+        if bond_dims is None:
+            bond_dims = bond_dims_
+
+    if len(bond_dims) != n - 1:
+        raise ValueError(f"{len(bond_dims)=} must be {n - 1}.")
+    if check_bond_dims:
+        for i, (dim1, dim2) in enumerate(zip(bond_dims, bond_dims_, strict=True)):
+            if dim1 > dim2:
+                raise ValueError(f"{i}th dim {dim1} must not be larger than {dim2}.")
+
+    tt_cores = []
+    SVs = []
+    for i in range(n - 1):
+        if i == 0:
+            ri_1 = 1
+        else:
+            ri_1 = bond_dims[i - 1]
+        ri = bond_dims[i]
+        C = C.reshape(ri_1 * dims[i], dims[i + 1 :].numel())
+        U, S, Vh = torch.linalg.svd(C, full_matrices=False)
+        if S.shape[0] < ri:
+            # already size of S is less than requested bond_dims, so update the dimension
+            ri = S.shape[0]
+            bond_dims[i] = ri
+        # approximation
+        U = U[:, :ri]
+        S = S[:ri]
+        if return_sv:
+            SVs.append(S.detach().clone())
+        Vh = Vh[:ri, :]
+        tt_cores.append(U.reshape(ri_1, dims[i], ri))
+        C = torch.diag(S) @ Vh
+    tt_cores.append(C)
+    tt_cores[0] = tt_cores[0].reshape(dims[0], bond_dims[0])
+    if return_sv:
+        return tt_cores, SVs
+    return tt_cores
+
 
 if __name__ == "__main__":
     pass
