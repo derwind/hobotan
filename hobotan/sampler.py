@@ -12,21 +12,21 @@ def get_result(pool, score, index_map):
     #重複解を集計
     unique_pool, original_index, unique_counts = np.unique(pool, axis=0, return_index=True, return_counts=True)
     #print(unique_pool, original_index, unique_counts)
-    
+
     #エネルギーもユニークに集計
     unique_energy = score[original_index]
     #print(unique_energy)
-    
+
     #エネルギー低い順にソート
     order = np.argsort(unique_energy)
     unique_pool = unique_pool[order]
     unique_energy = unique_energy[order]
     unique_counts = unique_counts[order]
-    
+
     #結果リスト
     result = [[dict(zip(index_map.keys(), unique_pool[i])), unique_energy[i], unique_counts[i]] for i in range(len(unique_pool))]
     #print(result)
-    
+
     return result
 
 
@@ -39,33 +39,33 @@ class SASampler:
         #乱数シード
         self.seed = seed
 
-    
+
     def run(self, hobomix, shots=100, T_num=2000, show=False):
         global score2
-        
+
         #解除
         hobo, index_map = hobomix
         # print(index_map)
-        
+
         #matrixサイズ
         N = len(hobo)
         # print(N)
-        
+
         #次数
         ho = len(hobo.shape)
         # print(ho)
-        
+
         #シード固定
         nr.seed(self.seed)
-        
+
         #
         shots = max(int(shots), 100)
-        
+
         # プール初期化
         pool_num = shots
         pool = nr.randint(0, 2, (pool_num, N)).astype(float)
         # print(pool)
-        
+
         """
         poolの重複を解除する
         """
@@ -88,15 +88,15 @@ class SASampler:
                         count += 1
                         if count == 3:
                             break
-        
+
         #スコア初期化
         score = np.zeros(pool_num)
-        
+
         """
         #旧実装
         # einsum("ijk,i,j,k->", qmatrix, x, x, x)
         # einsum("ijk,Ni,Nj,Nk->N", qmatrix, pool, pool, pool)
-        
+
         #スコア計算コマンド
         k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
         l = 'abcdefghjklmnopqrstuvwxyz'
@@ -106,29 +106,29 @@ class SASampler:
         command += f'score2 = np.zeros(pool_num)\r\n'
         command += f'score2 = np.einsum(\'{s}\', hobo, pool2' + ', pool2' * (ho - 1) + f')\r\n'
         # print(command)
-        
+
         #スコア計算
         pool2 = pool
         exec(command)
         score = score2
         # print(score)
         """
-        
+
         #スコア計算
         k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
         l = 'abcdefghjklmnopqrstuvwxyz'
         s = l[:ho] + k[:3*ho] + '->N'
         # print(s)
-        
+
         operands = [hobo] + [pool] * ho
         score = np.einsum(s, *operands)
         # print(score)
-        
+
         # フリップ数リスト（2個まで下がる）
         flip = np.sort(nr.rand(T_num) ** 2)[::-1]
         flip = (flip * max(0, N * 0.5 - 2)).astype(int) + 2
         # print(flip)
-        
+
         # フリップマスクリスト
         flip_mask = [[1] * flip[0] + [0] * (N - flip[0])]
         if N <= 2:
@@ -143,10 +143,10 @@ class SASampler:
                 flip_mask.append(tmp)
             flip_mask = np.array(flip_mask, bool)
         # print(flip_mask.shape)
-        
+
         # 局所探索フリップマスクリスト
         single_flip_mask = np.eye(N, dtype=bool)
-        
+
         """
         アニーリング＋1フリップ
         """
@@ -158,18 +158,18 @@ class SASampler:
             pool2 = pool.copy()
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = np.sum((pool2 @ qmatrix) * pool2, axis=1)
-            
+
             operands = [hobo] + [pool2] * ho
             score2 = np.einsum(s, *operands)
-            
+
             # 更新マスク
             update_mask = score2 < score
             # print(update_mask)
-    
+
             # 更新
             pool[update_mask] = pool2[update_mask]
             score[update_mask] = score2[update_mask]
-        
+
         # 最後に1フリップ局所探索
         # 集団まるごと
         for fm in single_flip_mask:
@@ -178,23 +178,23 @@ class SASampler:
             pool2 = pool.copy()
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = np.sum((pool2 @ qmatrix) * pool2, axis=1)
-            
+
             operands = [hobo] + [pool2] * ho
             score2 = np.einsum(s, *operands)
-            
+
             # 更新マスク
             update_mask = score2 < score
             # print(update_mask)
-    
+
             # 更新
             pool[update_mask] = pool2[update_mask]
             score[update_mask] = score2[update_mask]
         pool = pool.astype(int)
-        
+
         # ----------
         #共通後処理
         result = get_result(pool, score, index_map)
-        
+
         return result
 
 
@@ -209,11 +209,11 @@ class MIKASAmpler:
 
     def run(self, hobomix, shots=100, T_num=2000, use_ttd=False, show=False):
         global score2
-        
+
         #解除
         hobo, index_map = hobomix
         # print(index_map)
-        
+
         #pytorch確認
         attention = False
         try:
@@ -227,15 +227,15 @@ class MIKASAmpler:
             print('ArminSampler requires PyTorch installation.\nUse "pip install torch" (or others) and ensure\n-------\nimport torch\ntorch.cuda.is_available()\n#torch.backends.mps.is_available() #if Mac\n-------\noutputs True to set up the environment.')
             print()
             sys.exit()
-        
+
         #matrixサイズ
         N = len(hobo)
         # print(N)
-        
+
         #次数
         ho = len(hobo.shape)
         # print(ho)
-        
+
         # CUDA使えるか確認
         if self.mode == 'GPU' and torch.cuda.is_available():
             if self.device_input == 'cuda:0': #指示がない場合
@@ -250,33 +250,35 @@ class MIKASAmpler:
         else:
             self.mode = 'CPU'
             self.device = 'cpu'
-        
+
         #モード表示
         if self.verbose > 0:
             print(f'MODE: {self.mode}')
             print(f'DEVICE: {self.device}')
-    
+
         # ランダムシード
         random.seed(int(time.time()))
         nr.seed(int(time.time()))
         torch.manual_seed(int(time.time()))
         torch.backends.cudnn.deterministic = True
         torch.use_deterministic_algorithms = True
-        
+
         #シード固定
         if self.seed != None:
             random.seed(self.seed)
             nr.seed(self.seed)
             torch.manual_seed(self.seed)
-        
+
         #
         shots = max(int(shots), 100)
-        
+
+        dtype = torch.float32  # 可能なら単精度で以降も計算する
+
         # --- テンソル疑似SA ---
         #
-        hobo = torch.tensor(hobo, dtype=torch.float32, device=self.device).float()
+        hobo = torch.tensor(hobo, dtype=dtype, device=self.device)
         # print(hobo.shape)
-        
+
         #TT分解を使用する場合
         tt_cores = []
         if use_ttd:
@@ -285,21 +287,42 @@ class MIKASAmpler:
             # print(len(tt_cores))
             # print(tt_cores[0].shape)
             # print(tt_cores[1].shape)
-        
+            l = 'abcdefghjklmnopqrstuvwxyz'
+            ltt = ['aA', 'AbB', 'BcC', 'CdD', 'DeE', 'EfF', 'FgG', 'GhH', 'HiJ', 'JjK', 'KkL', 'LlM', 'MmO', 'OnP', 'PoQ', 'QpR', 'RqS', 'SrT', 'TsU', 'UuV', 'VvW', 'WwX', 'XxY', 'YyZ', 'Zz']
+            # 精度検証
+            s = ltt[:ho]
+            if len(s[-1]) == 3:
+                s[-1] = s[-1][:2]
+            s = ','.join(s) + '->' + l[:ho]
+            # 以下は `atol` を使って緩めの判定でも良いかもしれない。atol=1e-3 とか。
+            if not torch.allclose(torch.einsum(s, *tt_cores), hobo):
+                # print("NG")
+                hobo = hobo.double()
+                tt_cores = TT_SVD(hobo)  # 倍精度で SVD をやり直し
+                if torch.allclose(torch.einsum(s, *tt_cores), hobo):
+                    print("Double precision does work!. I use torch.float64.")
+                    dtype = torch.float64
+                else:
+                    print("Double precision doesn't work, so I give up on ttd.")
+                    use_ttd = False
+                    hobo = hobo.float()  # 元に戻す
+            #else:
+            #    print("Single precision does work!")
+
         # プール初期化
         pool_num = shots
-        pool = torch.randint(0, 2, (pool_num, N), dtype=torch.float32, device=self.device).float()
-        
+        pool = torch.randint(0, 2, (pool_num, N), dtype=dtype, device=self.device)
+
         # スコア初期化
         # score = torch.sum((pool @ qmatrix) * pool, dim=1, dtype=torch.float32)
-        score = torch.zeros(pool_num, dtype=torch.float32)
+        score = torch.zeros(pool_num, dtype=dtype)
         # print(score)
-        
+
         """
         #旧実装
         # einsum("ijk,i,j,k->", hobo, x, x, x)
         # einsum("ijk,Ni,Nj,Nk->N", hobo, pool, pool, pool)
-        
+
         #スコア計算コマンド
         k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
         l = 'abcdefghjklmnopqrstuvwxyz'
@@ -309,14 +332,14 @@ class MIKASAmpler:
         command += f'score2 = torch.zeros(pool_num, dtype=torch.float32)\r\n'
         command += f'score2 = torch.einsum(\'{s}\', hobo, pool2' + ', pool2' * (ho - 1) + f')\r\n'
         print(command)
-        
+
         #スコア計算
         pool2 = pool
         exec(command)
         score = score2
         print(score)
         """
-        
+
         #スコア計算
         k = ',Na,Nb,Nc,Nd,Ne,Nf,Ng,Nh,Nj,Nk,Nl,Nm,Nn,No,Np,Nq,Nr,Ns,Nt,Nu,Nv,Nw,Nx,Ny,Nz'
         l = 'abcdefghjklmnopqrstuvwxyz'
@@ -331,15 +354,15 @@ class MIKASAmpler:
             s = l[:ho] + k[:3*ho] + '->N'
             operands = [hobo] + [pool] * ho
         # print(s)
-        
+
         score = torch.einsum(s, *operands)
         # print(score)
-        
+
         # フリップ数リスト（2個まで下がる）
         flip = np.sort(nr.rand(T_num) ** 2)[::-1]
         flip = (flip * max(0, N * 0.5 - 2)).astype(int) + 2
         #print(flip)
-        
+
         # フリップマスクリスト
         flip_mask = [[1] * flip[0] + [0] * (N - flip[0])]
         if N <= 2:
@@ -355,14 +378,14 @@ class MIKASAmpler:
             flip_mask = np.array(flip_mask, bool)
         flip_mask = torch.tensor(flip_mask).bool()
         #print(flip_mask.shape)
-        
+
         # 局所探索フリップマスクリスト
         single_flip_mask = torch.eye(N, dtype=bool)
         #print(single_flip_mask)
-        
+
         # スコア履歴
         score_history = []
-        
+
         """
         アニーリング＋1フリップ
         """
@@ -372,43 +395,43 @@ class MIKASAmpler:
             pool2 = pool.clone()
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = torch.sum((pool2 @ qmatrix) * pool2, dim=1)
-    
+
             if use_ttd:
                 operands = tt_cores + [pool2] * ho
             else:
                 operands = [hobo] + [pool2] * ho
             score2 = torch.einsum(s, *operands)
-    
+
             # 更新マスク
             update_mask = score2 < score
-    
+
             # 更新
             pool[update_mask] = pool2[update_mask]
             score[update_mask] = score2[update_mask]
-            
+
             # スコア記録
             score_history.append(torch.mean(score).item())
-            
+
         # 最後に1フリップ局所探索
         # 集団まるごと
         for fm in single_flip_mask:
             pool2 = pool.clone()
             pool2[:, fm] = 1. - pool[:, fm]
             # score2 = torch.sum((pool2 @ qmatrix) * pool2, dim=1)
-    
+
             if use_ttd:
                 operands = tt_cores + [pool2] * ho
             else:
                 operands = [hobo] + [pool2] * ho
             score2 = torch.einsum(s, *operands)
-    
+
             # 更新マスク
             update_mask = score2 < score
-    
+
             # 更新
             pool[update_mask] = pool2[update_mask]
             score[update_mask] = score2[update_mask]
-            
+
         # スコア記録
         score_history.append(torch.mean(score).item())
 
@@ -419,14 +442,14 @@ class MIKASAmpler:
             plt.xlabel('Iteration')
             plt.ylabel('Energy')
             plt.show()
-        
+
         pool = pool.to('cpu').detach().numpy().copy()
         score = score.to('cpu').detach().numpy().copy()
-        
+
         # ----------
         #共通後処理
         result = get_result(pool, score, index_map)
-        
+
         return result
 
 def TT_SVD(C, bond_dims=None, check_bond_dims=False, return_sv=False):
