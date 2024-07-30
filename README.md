@@ -214,7 +214,20 @@ z = 10.0
 
 ## その他の使い方
 
-[TYTANパッケージ](https://github.com/tytansdk/tytan) の派生形なのでそちらを参照してみてください。
+論文/Paper　[HOBOTAN: Efficient Higher Order Binary Optimization Solver with Tensor Networks and PyTorch](https://blueqat.com/bqresearch/39fc4433-2907-4f43-a913-a294953b7e60)
+
+ブログ　[量子アニーリング（HOBO対応）のパッケージ「HOBOTAN」が登場](https://vigne-cla.com/21-41/)
+
+ブログ　[新型ソルバーの試作品、HOBOソルバー hobotan ができたようです。](https://blueqat.com/yuichiro_minato2/b562b955-0de8-4b6f-b092-15785a099c13)
+
+blog　[A prototype of the new solver, HOBO solver "hobotan," is now available.](https://blueqat.com/yuichiro_minato2/b79a33dd-875d-4772-a11a-c6a80888a212)
+
+ブログ　[HOBOソルバーでグラフカラーリング問題を効率化](https://blueqat.com/yuichiro_minato2/ae758ca8-27fe-43e8-8bdc-2171dfc3c01e)
+
+blog　[Optimizing Graph Coloring Problems with the HOBO Solver](https://blueqat.com/yuichiro_minato2/de1d6041-1eb5-4fab-9776-73ab82270836)
+
+[TYTANパッケージ](https://github.com/tytansdk/tytan) の派生形なのでそちらも参照してみてください。
+
 
 ## 開発㌠
 
